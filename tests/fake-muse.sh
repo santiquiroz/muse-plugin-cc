@@ -31,10 +31,33 @@ cat >"$calls/$number.stdin"
   printf 'GIT_SSH_COMMAND=%s\n' "${GIT_SSH_COMMAND-}"
   printf 'MSYS_NO_PATHCONV=%s\n' "${MSYS_NO_PATHCONV-}"
   printf 'MSYS2_ARG_CONV_EXCL=%s\n' "${MSYS2_ARG_CONV_EXCL-}"
+  printf 'GIT_CONFIG_COUNT=%s\n' "${GIT_CONFIG_COUNT-}"
+  for ((index=0; index<${GIT_CONFIG_COUNT:-0}; index++)); do
+    key="GIT_CONFIG_KEY_$index"
+    value="GIT_CONFIG_VALUE_$index"
+    printf '%s=%s\n' "$key" "${!key-}"
+    printf '%s=%s\n' "$value" "${!value-}"
+  done
 } >"$calls/$number.env"
 
 case "${FAKE_MUSE_MODE:-ok}" in
-  sleep) sleep 30; exit 0 ;;
+  sleep)
+    sleep "${FAKE_MUSE_SLEEP:-30}" &
+    child_pid=$!
+    [ -z "${FAKE_MUSE_CHILD_PID_FILE:-}" ] || printf '%s\n' "$child_pid" >"$FAKE_MUSE_CHILD_PID_FILE"
+    wait "$child_pid"
+    exit 0
+    ;;
+  partial)
+    printf '%s\n' '{"stream":{"kind":"session","id":"session-partial"},"payload_type":"run.model.configured","payload":{"model_id":"model-partial"}}'
+    printf '%s\n' '{"payload_type":"tool.result","payload":{"edit_facts":{"tool_name":"write_file","path":"first.txt"}}}'
+    printf '%s' '{"payload_type":"tool.result","payload":{"edit_facts":{"tool_name":"write_file","path":"trailing'
+    : >"$calls/partial-ready"
+    sleep "${FAKE_MUSE_SLEEP:-4}"
+    printf '%s\n' '.txt"}}}'
+    printf '%s\n' '{"payload_type":"run.terminal.completed","payload":{"terminal":"completed","text":"Detached final answer."}}'
+    exit "${FAKE_MUSE_EXIT:-0}"
+    ;;
   commit) git commit --allow-empty -q -m fake || exit $? ;;
 esac
 

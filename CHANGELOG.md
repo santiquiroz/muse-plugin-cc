@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.0 — 2026-10-06
+
+- Detached `start`, sliced `wait` (exit 75 while running) and `cancel`
+  (exit 130); default deadline 2700 seconds via `MUSE_RESCUE_MAX_SECONDS`.
+- Subagent repeats 480-second waits; `run` remains the short path with a default 540-second limit.
+- Windows deadline, cancel and short-run timeout kill the whole process tree
+  to prevent orphan sandbox workers holding the ACL publication lock.
+- Preflight cleans only orphan sandbox workers whose parents no longer exist.
+- Child git config appends workspace `safe.directory` while preserving existing
+  `GIT_CONFIG_*` entries and leaving global config untouched.
+- Hermetic lifecycle, process-tree kill, orphan cleanup and git config tests;
+  updated English/Spanish documentation.
+
 ## 0.1.0 — 2026-10-06
 
 First release of the Muse Code delegation lane.

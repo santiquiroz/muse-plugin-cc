@@ -9,7 +9,7 @@ inmediatamente después de
 [DeepSeek Harness](https://github.com/santiquiroz/deepseek-plugin-cc) y antes
 de Codex, Copilot, Antigravity, Cursor y Ollama. Úsalo para una spec acotada,
 un renombre, boilerplate, una corrección, una investigación enfocada o una
-segunda opinión de solo lectura; no para trabajos largos de varios pasos.
+segunda opinión de solo lectura.
 Muse es lento: una tarea trivial de tres pasos tardó unos cuatro minutos.
 
 Plugins hermanos:
@@ -72,7 +72,7 @@ credenciales.
 ## Uso
 
 ```text
-/muse:rescue add unit tests for src/utils/money.ts covering rounding and negative amounts
+/muse:rescue --background add unit tests for src/utils/money.ts covering rounding and negative amounts
 /muse:rescue --read-only review this pasted diff for race conditions: <diff>
 /muse:rescue --model muse-spark-1.3-contributor --reasoning-effort high diagnose this focused build failure
 /muse:rescue --max-model-steps 30 implement the single acceptance criterion below
@@ -80,6 +80,12 @@ credenciales.
 
 Pon los flags antes de la tarea:
 
+- `--wait` — predeterminado; ejecuta el subagente en foreground. Espera un
+  proceso Muse desacoplado mediante tramos de `wait`. Si se interrumpe,
+  conserva el id para usar `wait` o `cancel` después: el proceso sigue.
+- `--background` — ejecuta el subagente en background y entrega su salida al
+  terminar. Estos flags de ejecución se eliminan del prompt antes de
+  reenviarlo; las llamadas Bash del forwarder siguen siendo foreground.
 - `--model <slug>` — opcional; si se omite, Muse usa el modelo predeterminado
   de la cuenta. El slug se valida antes de ejecutar.
 - `--reasoning-effort <tier>` — `none`, `minimal`, `low`, `medium`, `high`,
@@ -90,18 +96,27 @@ Pon los flags antes de la tarea:
   comandos de shell ni inspeccionar archivos.
 
 Esta versión no incluye `--continue`; no se ha verificado reanudar sesiones
-exec. Cada ejecución tiene un límite de 9 minutos
-(`MUSE_RESCUE_TIMEOUT` puede cambiar los segundos). Muse headless puede tardar:
-las ediciones que alcanzó a hacer una ejecución interrumpida quedan en el árbol
-de trabajo. El forwarder envía la tarea y sus restricciones en un archivo
+exec. Las ejecuciones duran hasta `MUSE_RESCUE_MAX_SECONDS` (predeterminado:
+2700 segundos, 45 minutos). `start` desacopla el proceso y `wait <id>` espera
+en tramos de 480 segundos (`--slice <segundos>` acepta hasta 540). Cada tramo
+es una llamada Bash foreground independiente con timeout 600000 ms; el código
+75 indica que sigue corriendo. El presupuesto es
+`1 + 1 + ceil(MAX/480) + 1`. Si se interrumpe el subagente, el proceso sigue:
+conserva su id para usar `wait <id>` o `cancel <id>` después. Cancelar termina
+con código 130; esperar pasada la fecha límite mata el árbol de procesos y
+termina con código 124. Las ediciones permanecen en el árbol de trabajo.
+`run` conserva el límite corto predeterminado de 540 segundos
+(`MUSE_RESCUE_TIMEOUT` cambia los segundos). El forwarder envía la tarea y sus restricciones en un archivo
 temporal `--prompt-file`, no en los argumentos del proceso.
 
 ## Qué ejecuta el forwarder
 
-El subagente `muse-rescue` hace una llamada foreground de preflight y, solo si
-esta termina bien, una llamada foreground de ejecución. Crea un archivo de
-prompt temporal con la solicitud y sus restricciones, y ejecuta el equivalente
-a:
+El subagente `muse-rescue` llama a `preflight`, luego `start` y repite
+`wait <id>` mientras termine con código 75. Cada llamada es foreground. El
+script desacopla Muse con `nohup`, background y `disown`; guarda los archivos
+del proceso en `${MUSE_RESCUE_HOME:-$HOME/.muse-rescue}/jobs/<id>/`. Crea un
+archivo de prompt temporal con la solicitud y sus restricciones, y ejecuta
+el equivalente a:
 
 ```bash
 muse exec --json --prompt-file <ruta temporal nativa> \
@@ -122,7 +137,8 @@ El filtro JSONL muestra el progreso y la respuesta terminal una sola vez,
 oculta los fragmentos de respuesta mientras llegan e informa fallos de
 herramientas y reintentos. El resumen incluye duración, ID de sesión y modelo
 configurado cuando Muse los proporciona. Los códigos de salida se conservan;
-los estados de timeout `124`, `137` y `142` también generan un aviso explícito.
+al vencer el plazo se muestra un aviso explícito y se termina con código 124.
+Cada espera muestra solamente el progreso nuevo.
 
 ## Modelo de seguridad
 
@@ -141,6 +157,24 @@ cambios. Revisa cada aviso y el árbol de trabajo antes del siguiente comando
 git. El forwarder rechaza `--yolo`, `--disable-sandbox`,
 `--disable-approval`, `--trust-workspace` y
 `--sandbox-network enabled`; cualquier opción desconocida termina con código 64.
+
+### Comportamientos conocidos
+
+- En Windows, el vencimiento, la cancelación y el timeout corto de `run`
+  matan todo el árbol con `taskkill /T /F /PID` mientras el padre sigue vivo.
+  De otro modo, los workers del sandbox quedan huérfanos y retienen el lock
+  global `Global\TbhWindowsSandboxAclPublication`: las siguientes ejecuciones
+  fallan tras 120 segundos con un timeout del lock de publicación de ACL.
+- El preflight de Windows revisa comandos e ids de padre de los workers del
+  sandbox y mata solo aquellos cuyo padre ya no existe. Muestra
+  `[muse-rescue] killed N orphan Muse sandbox worker(s) left by an interrupted run`.
+  Los workers de una sesión interactiva con padre vivo permanecen intactos.
+  `MUSE_RESCUE_PS` y `MUSE_RESCUE_KILL` permiten inyectar comandos en pruebas.
+- Cada hijo recibe `safe.directory` para el workspace mediante
+  `GIT_CONFIG_COUNT`, `GIT_CONFIG_KEY_N` y `GIT_CONFIG_VALUE_N`, con barras
+  normales. Se agrega al final de la configuración existente y no cambia
+  el git config global. El usuario distinto del sandbox de Windows puede
+  usar git sin el error `detected dubious ownership`.
 
 **Trampa de AppData en Windows:** el shell del sandbox de Muse se queda
 colgado sin error si el workspace es privado al usuario con sesión iniciada,

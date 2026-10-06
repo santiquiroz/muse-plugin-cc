@@ -6,6 +6,48 @@ let modelId = "";
 let failed = false;
 let finalText = "";
 
+function loadState() {
+  const path = process.env.MUSE_RESCUE_STATE_FILE;
+  if (!path || !fs.existsSync(path)) return;
+  const state = JSON.parse(fs.readFileSync(path, "utf8"));
+  sessionId = state.sessionId || "";
+  modelId = state.modelId || "";
+  failed = Boolean(state.failed);
+}
+
+function writeState() {
+  const path = process.env.MUSE_RESCUE_STATE_FILE;
+  if (!path) return;
+  const offsetPath = process.env.MUSE_RESCUE_OFFSET_FILE;
+  const rawOffset = offsetPath ? Number(fs.readFileSync(offsetPath + ".pending", "utf8")) : undefined;
+  fs.writeFileSync(path + ".tmp", JSON.stringify({ sessionId, modelId, failed, rawOffset }));
+  fs.renameSync(path + ".tmp", path);
+  if (offsetPath) fs.writeFileSync(offsetPath, String(rawOffset) + "\n");
+}
+
+function sliceOffset(offsetPath) {
+  const statePath = process.env.MUSE_RESCUE_STATE_FILE;
+  if (statePath && fs.existsSync(statePath)) {
+    const state = JSON.parse(fs.readFileSync(statePath, "utf8"));
+    if (Number.isSafeInteger(state.rawOffset)) return state.rawOffset;
+  }
+  return Number(fs.readFileSync(offsetPath, "utf8")) || 0;
+}
+
+function readSlice(path, offsetPath, final) {
+  const offset = sliceOffset(offsetPath);
+  const fd = fs.openSync(path, "r");
+  const bytes = Buffer.alloc(Math.max(0, fs.fstatSync(fd).size - offset));
+  const count = fs.readSync(fd, bytes, 0, bytes.length, offset);
+  fs.closeSync(fd);
+  const available = bytes.subarray(0, count);
+  const consumed = final ? count : available.lastIndexOf(10) + 1;
+  fs.writeFileSync(offsetPath + ".pending", String(offset + consumed) + "\n");
+  if (!consumed) return;
+  process.stdout.write(available.subarray(0, consumed));
+  if (final && available[consumed - 1] !== 10) process.stdout.write("\n");
+}
+
 function oneLine(value, max = 120) {
   const text = String(value == null ? "" : value).replace(/\s+/g, " ").trim();
   return text.length > max ? text.slice(0, max) + "..." : text;
@@ -95,6 +137,7 @@ function render(record) {
 }
 
 function writeMeta() {
+  writeState();
   const metaPath = process.env.MUSE_RESCUE_META_FILE;
   if (metaPath) {
     fs.writeFileSync(metaPath, JSON.stringify({ sessionId, modelId, failed }) + "\n");
@@ -102,7 +145,9 @@ function writeMeta() {
   if (finalText) emit(finalText);
 }
 
-readline.createInterface({ input: process.stdin })
+function filterStream() {
+  loadState();
+  readline.createInterface({ input: process.stdin })
   .on("line", (line) => {
     let record;
     try {
@@ -114,3 +159,10 @@ readline.createInterface({ input: process.stdin })
     render(record);
   })
   .on("close", writeMeta);
+}
+
+if (process.argv[2] === "--read-slice") {
+  readSlice(process.argv[3], process.argv[4], process.argv[5] === "final");
+} else {
+  filterStream();
+}

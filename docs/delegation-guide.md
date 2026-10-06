@@ -14,9 +14,14 @@ orchestrator.
 | Codex / Copilot / Antigravity / Cursor / Ollama | Next lane when Muse is unavailable, rate-limited or unauthenticated |
 | Keep inline | Domain logic, business rules, architecture and anything whose WHY lives in this conversation |
 
-Muse is slow: a trivial three-step task took about four minutes. Runs have a
-9-minute cap, so delegate only self-contained, bounded work—not long
-multi-step jobs. If quota, rate-limit or auth signals occur, stop and use the
+Muse is slow: a trivial three-step task took about four minutes. Detached
+runs last up to 45 minutes by default (`MUSE_RESCUE_MAX_SECONDS=2700`).
+The subagent calls `start`, then repeats foreground `wait <id>` calls in
+480-second slices (maximum 540); exit 75 means still running. A wait past the
+deadline kills the process tree with exit 124. An interrupted subagent leaves
+the job running: retain its id to `wait` or `cancel` later (exit 130). Edits
+remain in the working tree. The `run` command keeps a short default limit of 540 seconds
+(`MUSE_RESCUE_TIMEOUT` overrides the seconds). If quota, rate-limit or auth signals occur, stop and use the
 next lane; never retry Muse automatically.
 
 For an independent second opinion, use `/muse:rescue --read-only` and paste
