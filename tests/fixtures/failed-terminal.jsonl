@@ -1,0 +1,1 @@
+{"schema_version":1,"id":"evt-fail","stream":{"kind":"session","id":"session-failed-1"},"sequence":1,"payload_type":"run.terminal.failed","payload":{"terminal":"error","reason":"Muse run failed: model execution stopped"}}

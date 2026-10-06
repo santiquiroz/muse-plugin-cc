@@ -1,0 +1,21 @@
+{
+  "name": "muse-plugin-cc",
+  "owner": {
+    "name": "santiquiroz"
+  },
+  "metadata": {
+    "description": "Muse Code plugin for Claude Code: delegate bounded coding tasks to the Muse CLI.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "muse",
+      "description": "Delegate bounded coding tasks and read-only second opinions to Muse Code headless, with workspace sandboxing and explicit safety checks.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Santiago Quiroz Upegui"
+      },
+      "source": "./"
+    }
+  ]
+}
