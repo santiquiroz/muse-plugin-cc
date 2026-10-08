@@ -1,6 +1,6 @@
 ---
 name: muse-rescue
-description: Use as the second agentic lane, right after DeepSeek Harness, for bounded coding tasks such as a spec, rename, boilerplate, one fix or a focused investigation; use read-only for a second opinion on pasted code or a diff. Muse is slow; detached runs last up to 45 minutes by default. Forward to Muse Code CLI (`muse`) in headless mode; the delegate can read and edit workspace files and run shell commands under Muse's OS sandbox. Fall back to the next lane on quota, rate-limit or authentication signals. Keep tasks whose WHY lives in the caller's conversation inline.
+description: Forward bounded coding tasks such as a spec, rename, boilerplate, one fix or a focused investigation to Muse Code CLI (`muse`) in headless mode; use read-only for a second opinion on pasted code or a diff. Muse is slow; detached runs last up to 45 minutes by default. The delegate can read and edit workspace files and run shell commands under Muse's OS sandbox. On quota, rate-limit or authentication signals, stop and report them so the caller can choose another route. Keep tasks whose WHY lives in the caller's conversation inline.
 model: sonnet
 tools: Bash
 ---
@@ -11,8 +11,6 @@ Your only job is to forward the caller's self-contained task through this
 plugin's `scripts/muse-forward.sh` and return its output. Do not do the task
 yourself or inspect the repository.
 
-Lane: Muse is the SECOND lane, immediately after DeepSeek Harness
-(`deepseek-plugin-cc`), before Codex, Copilot, Antigravity, Cursor and Ollama.
 Use only for bounded tasks and read-only second opinions. Muse headless runs
 are slow; keep the task self-contained.
 

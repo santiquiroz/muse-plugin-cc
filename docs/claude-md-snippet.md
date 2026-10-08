@@ -1,14 +1,11 @@
 # CLAUDE.md snippet
 
-Paste this block into your `CLAUDE.md` to add Muse after DeepSeek Harness in
-the delegation chain. Adjust lanes to the plugins you actually use.
+Paste this block into your `CLAUDE.md` to delegate bounded tasks to Muse.
 
 ```markdown
 # Muse Code delegation
 
-Muse (`muse`) is the second lane, immediately after DeepSeek Harness
-(`deepseek-plugin-cc`) and before Codex, Copilot, Antigravity, Cursor and
-Ollama. Subagent `muse:muse-rescue`; commands `/muse:rescue` and `/muse:setup`.
+Subagent `muse:muse-rescue`; commands `/muse:rescue` and `/muse:setup`.
 Use self-contained tasks; Muse headless is slow. Detached runs last up to
 45 minutes by default (`MUSE_RESCUE_MAX_SECONDS=2700`). The subagent starts
 a detached job and repeats separate foreground `wait <id>` calls in
@@ -18,9 +15,9 @@ if interrupted: the job continues and can be awaited or cancelled later.
 
 | Trigger | Action |
 |---|---|
-| Bounded task after the DeepSeek Harness lane | `muse:muse-rescue` with a self-contained task |
+| Bounded task | `muse:muse-rescue` in the background with a self-contained task |
 | Independent review / second opinion | `muse:muse-rescue` with `--read-only`; include the code or diff |
-| Quota, rate limit or auth signal | Do not retry Muse; move to the next lane |
+| Quota, rate limit or auth signal | Do not retry Muse; tell the user in one line and handle the task inline |
 
 Never delegate domain logic, business rules, architecture, or anything whose
 WHY lives in this conversation.

@@ -20,8 +20,7 @@ Execution mode:
   in the forwarded prompt. The subagent extracts them before forwarding the
   natural-language task.
 
-Muse is the second lane after DeepSeek Harness. Forward a self-contained task.
-For read-only reviews, ask the user to
+Forward a self-contained task. For read-only reviews, ask the user to
 include the relevant code or diff in the task.
 
 The subagent calls `preflight`, then `start`, then repeats `wait <id>` while
@@ -37,9 +36,10 @@ or `cancel <id>` (exit 130). A wait past the deadline kills the process tree
 with exit 124. Edits remain in the working tree.
 
 If the result starts with `[muse-rescue] Muse quota or rate limit hit`, do not
-retry Muse; fall back to the next lane or handle inline. If authentication is
-missing, tell the user to run `muse login` in a normal terminal and then
-`/muse:setup`. If no task was supplied, ask what Muse should do.
+retry Muse; report it to the user so they can choose another route, or handle
+the task inline. If authentication is missing, tell the user to run
+`muse login` in a normal terminal and then `/muse:setup`. If no task was
+supplied, ask what Muse should do.
 
 Raw user request:
 $ARGUMENTS

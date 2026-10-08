@@ -308,7 +308,7 @@ test_manifests() {
   plugin_version=$(sed -n 's/.*"version": "\([^"]*\)".*/\1/p' "$ROOT/.claude-plugin/plugin.json" | head -n 1)
   marketplace_versions=$(sed -n 's/.*"version": "\([^"]*\)".*/\1/p' "$ROOT/.claude-plugin/marketplace.json")
   changelog_version=$(sed -n 's/^## \([^ ]*\).*/\1/p' "$ROOT/CHANGELOG.md" | head -n 1)
-  assert_equal 0.2.0 "$plugin_version" "Plugin version"
+  assert_equal 0.2.1 "$plugin_version" "Plugin version"
   assert_equal "$plugin_version" "$changelog_version" "Changelog version"
   assert_equal "$plugin_version" "$(printf '%s\n' "$marketplace_versions" | sed -n '1p')" "Marketplace metadata version"
   assert_equal "$plugin_version" "$(printf '%s\n' "$marketplace_versions" | sed -n '2p')" "Marketplace plugin version"
@@ -515,6 +515,26 @@ test_preflight_orphan_cleanup() {
   [ -s "$FAKE_MUSE_PS_CALLS" ] || fail "PowerShell inventory was not requested"
 }
 
+test_preflight_orphan_control_chars() {
+  export MUSE_RESCUE_FORCE_WINDOWS=1 MUSE_RESCUE_KILL="$HOME/bin/fake-kill"
+  export FAKE_MUSE_KILL_RECORD_ONLY=1
+  printf '%s\n' $'[{"ProcessId":401,"ParentProcessId":1,"CommandLine":"muse-bin\x01worker"}]' >"$FAKE_MUSE_PS_FIXTURE"
+  invoke_args preflight
+  assert_status 0 "$LAST_STATUS" "Control-character cleanup preflight"
+  assert_not_contains "$LAST_OUTPUT" 'orphan cleanup skipped' "Sanitized process list still parses"
+  [ -s "$FAKE_MUSE_PS_CALLS" ] || fail "PowerShell inventory was not requested"
+}
+
+test_preflight_orphan_unreadable() {
+  export MUSE_RESCUE_FORCE_WINDOWS=1 MUSE_RESCUE_KILL="$HOME/bin/fake-kill"
+  export FAKE_MUSE_KILL_RECORD_ONLY=1
+  printf '%s\n' 'not json' >"$FAKE_MUSE_PS_FIXTURE"
+  invoke_args preflight
+  assert_status 0 "$LAST_STATUS" "Unreadable-list cleanup preflight"
+  assert_contains "$LAST_OUTPUT" 'orphan cleanup skipped' "Unreadable process list warning"
+  [ -s "$FAKE_MUSE_PS_CALLS" ] || fail "PowerShell inventory was not requested"
+}
+
 assert_safe_directory() {
   local call=$1 index=$2 expected="$HOME/repo"
   if command -v cygpath >/dev/null 2>&1; then expected=$(cygpath -m "$expected"); fi
@@ -627,6 +647,8 @@ run_case windows-cancel-tree test_windows_cancel_tree
 run_case windows-deadline-tree test_windows_deadline_tree
 run_case windows-run-timeout-tree test_windows_run_timeout_tree
 run_case preflight-orphan-cleanup test_preflight_orphan_cleanup
+run_case preflight-orphan-control-chars test_preflight_orphan_control_chars
+run_case preflight-orphan-unreadable test_preflight_orphan_unreadable
 run_case git-safe-directory-unset test_git_safe_directory_unset
 run_case git-safe-directory-append test_git_safe_directory_append
 run_case detached-invalid-arguments test_detached_invalid_arguments

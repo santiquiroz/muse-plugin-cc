@@ -231,7 +231,15 @@ cleanup_orphans() {
     let input = "";
     process.stdin.on("data", chunk => input += chunk);
     process.stdin.on("end", () => {
-      const parsed = JSON.parse(input.replace(/^\uFEFF/, "") || "[]");
+      // Windows PowerShell 5.1 ConvertTo-Json leaves some control characters in CommandLine unescaped
+      const text = input.replace(/^\uFEFF/, "").replace(/[\u0000-\u001F]/g, " ");
+      let parsed;
+      try {
+        parsed = JSON.parse(text || "[]");
+      } catch (error) {
+        console.error("[muse-rescue] WARNING: could not read the process list; orphan cleanup skipped (" + error.message + ")");
+        return;
+      }
       const rows = Array.isArray(parsed) ? parsed : [parsed];
       const alive = new Set(rows.map(row => Number(row.ProcessId)));
       for (const row of rows) {

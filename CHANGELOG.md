@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.1 — 2026-10-07
+
+- Fix: `preflight` failed with exit 1 whenever a running process's command
+  line contained a control character — Windows PowerShell 5.1's
+  `ConvertTo-Json` leaves some of them unescaped and the orphan cleanup's
+  `JSON.parse` threw. Control characters are now replaced before parsing, and
+  an unreadable process list only skips the cleanup with a warning.
+- Docs stand on their own, without a multi-lane setup: both READMEs rewritten
+  (When it helps, Configuration, Troubleshooting and Using it with other
+  delegates sections); the subagent description, `docs/` and
+  `commands/rescue.md` no longer speak of lanes or rank other plugins.
+
 ## 0.2.0 — 2026-10-06
 
 - Detached `start`, sliced `wait` (exit 75 while running) and `cancel`

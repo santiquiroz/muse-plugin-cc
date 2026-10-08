@@ -4,34 +4,28 @@ Delega tareas de código acotadas desde [Claude Code](https://claude.com/claude-
 a la CLI de Muse Code (`muse`) en modo headless.
 
 Claude Code sigue siendo el orquestador: define el contrato, conserva las
-decisiones de dominio y revisa los cambios. Muse es el **segundo carril**,
-inmediatamente después de
-[DeepSeek Harness](https://github.com/santiquiroz/deepseek-plugin-cc) y antes
-de Codex, Copilot, Antigravity, Cursor y Ollama. Úsalo para una spec acotada,
-un renombre, boilerplate, una corrección, una investigación enfocada o una
-segunda opinión de solo lectura.
-Muse es lento: una tarea trivial de tres pasos tardó unos cuatro minutos.
-
-Plugins hermanos:
-[deepseek-plugin-cc](https://github.com/santiquiroz/deepseek-plugin-cc),
-[copilot-plugin-cc](https://github.com/santiquiroz/copilot-plugin-cc),
-[antigravity-plugin-cc](https://github.com/santiquiroz/antigravity-plugin-cc),
-[cursor-plugin-cc](https://github.com/santiquiroz/cursor-plugin-cc) y
-[ollama-plugin-cc](https://github.com/santiquiroz/ollama-plugin-cc).
-**No está afiliado con Meta, Anthropic, OpenAI, GitHub ni los proyectos hermanos.**
+decisiones de dominio y revisa los cambios. Usa este plugin para una spec
+acotada, un renombre, boilerplate, una corrección, una investigación enfocada
+o una segunda opinión de solo lectura. Muse es lento: una tarea trivial de
+tres pasos tardó unos cuatro minutos.
 
 > Read this in English: [README.md](README.md)
 
-## Posición en la cadena de delegación
+## Cuándo conviene
 
-| Orden | Carril | Para qué sirve |
-|---|---|---|
-| Primero | [DeepSeek Harness](https://github.com/santiquiroz/deepseek-plugin-cc) | Carril agéntico preferido |
-| **Segundo (este plugin)** | **Muse Code** | Tareas acotadas y segundas opiniones de solo lectura |
-| Siguiente | Codex, Copilot, Antigravity, Cursor, Ollama | Alternativa cuando Muse no está disponible, tiene límite o no está autenticado |
-| Mantener inline | Claude Code | Lógica de dominio, reglas de negocio, arquitectura y tareas cuyo PORQUÉ vive en la conversación |
-
-Instala solo los carriles que uses; este plugin también funciona por sí solo.
+- **Suscripción de tarifa fija:** las corridas delegadas se cargan a tu
+  suscripción de Muse, así que delegar trabajo acotado no agrega costo
+  por llamada.
+- **Tareas acotadas:** una spec, un renombre, boilerplate, una corrección o
+  una investigación enfocada; trabajo con un contrato claro que no necesita
+  el contexto de la conversación.
+- **Segundas opiniones de solo lectura:** `--read-only` revisa código pegado
+  o un diff sin tocar archivos ni ejecutar comandos de shell.
+- **Corridas largas desacopladas:** los procesos se desacoplan y corren hasta
+  45 minutos por defecto mientras sigues trabajando; una espera interrumpida
+  puede retomarse después con el id del proceso.
+- **Costo honesto:** Muse es lento. Mantén las tareas delegadas autocontenidas
+  y no lo uses para respuestas rápidas.
 
 ## Requisitos
 
@@ -58,7 +52,9 @@ En Claude Code:
 /plugin install muse@muse-plugin-cc
 ```
 
-Luego, una vez por máquina:
+## Configuración inicial
+
+Una vez por máquina:
 
 ```text
 /muse:setup
@@ -78,7 +74,9 @@ credenciales.
 /muse:rescue --max-model-steps 30 implement the single acceptance criterion below
 ```
 
-Pon los flags antes de la tarea:
+`/muse:rescue` invoca automáticamente el subagente `muse-rescue`, reenvía la
+solicitud tal cual como su prompt y devuelve su salida verbatim, incluidas las
+líneas `[muse-rescue] WARNING:`. Pon los flags antes de la tarea:
 
 - `--wait` — predeterminado; ejecuta el subagente en foreground. Espera un
   proceso Muse desacoplado mediante tramos de `wait`. Si se interrumpe,
@@ -96,7 +94,11 @@ Pon los flags antes de la tarea:
   comandos de shell ni inspeccionar archivos.
 
 Esta versión no incluye `--continue`; no se ha verificado reanudar sesiones
-exec. Las ejecuciones duran hasta `MUSE_RESCUE_MAX_SECONDS` (predeterminado:
+exec.
+
+### Corridas largas
+
+Las ejecuciones duran hasta `MUSE_RESCUE_MAX_SECONDS` (predeterminado:
 2700 segundos, 45 minutos). `start` desacopla el proceso y `wait <id>` espera
 en tramos de 480 segundos (`--slice <segundos>` acepta hasta 540). Cada tramo
 es una llamada Bash foreground independiente con timeout 600000 ms; el código
@@ -109,7 +111,7 @@ termina con código 124. Las ediciones permanecen en el árbol de trabajo.
 (`MUSE_RESCUE_TIMEOUT` cambia los segundos). El forwarder envía la tarea y sus restricciones en un archivo
 temporal `--prompt-file`, no en los argumentos del proceso.
 
-## Qué ejecuta el forwarder
+### Qué ejecuta el forwarder
 
 El subagente `muse-rescue` llama a `preflight`, luego `start` y repite
 `wait <id>` mientras termine con código 75. Cada llamada es foreground. El
@@ -126,9 +128,8 @@ muse exec --json --prompt-file <ruta temporal nativa> \
   [--model <slug>] [--reasoning-effort <tier>]
 ```
 
-`--no-foreign-personal-context` es obligatorio: sin él, Muse puede cargar las
-instrucciones y skills personales de Claude Code del usuario e invitar a una
-delegación recursiva. El proceso hijo recibe `GIT_TERMINAL_PROMPT=0`,
+`--read-only` además pasa `--disable-write --disable-shell`. El proceso hijo
+recibe `GIT_TERMINAL_PROMPT=0`,
 `GIT_SSH_COMMAND="ssh -o BatchMode=yes"`, sin overrides de conversión de rutas
 MSYS y con stdin cerrado. Cuando existe `cygpath -w`, se usa para convertir las
 rutas.
@@ -150,51 +151,92 @@ desactiva el sandbox ni habilita la red. `--approval-mode never` y
 solicita aprobación. Una escritura fuera del workspace se deniega. El modo
 `--read-only` también desactiva escrituras y herramientas de shell.
 
-Las restricciones del prompt no son un sandbox: el delegado aún puede hacer
-commit dentro del workspace. Antes y después, el forwarder compara `HEAD`,
-rama, stash, git config y hooks, e imprime `[muse-rescue] WARNING:` si detecta
-cambios. Revisa cada aviso y el árbol de trabajo antes del siguiente comando
-git. El forwarder rechaza `--yolo`, `--disable-sandbox`,
-`--disable-approval`, `--trust-workspace` y
+`--no-foreign-personal-context` es obligatorio: sin él, Muse puede cargar las
+instrucciones y skills personales de Claude Code del usuario e invitar a una
+delegación recursiva.
+
+Las restricciones de la tarea prohíben hacer commit, push, reset, checkout,
+clean, cambiar de rama y borrar archivos, pero las restricciones del prompt no
+son un sandbox: el delegado aún puede hacer commit dentro del workspace. Antes
+y después, el forwarder compara `HEAD`, rama, stash, git config y hooks, e
+imprime `[muse-rescue] WARNING:` si detecta cambios. Revisa cada aviso y el
+diff del árbol de trabajo antes del siguiente comando git. El forwarder rechaza
+`--yolo`, `--disable-sandbox`, `--disable-approval`, `--trust-workspace` y
 `--sandbox-network enabled`; cualquier opción desconocida termina con código 64.
 
-### Comportamientos conocidos
+## Configuración
 
-- En Windows, el vencimiento, la cancelación y el timeout corto de `run`
-  matan todo el árbol con `taskkill /T /F /PID` mientras el padre sigue vivo.
-  De otro modo, los workers del sandbox quedan huérfanos y retienen el lock
-  global `Global\TbhWindowsSandboxAclPublication`: las siguientes ejecuciones
-  fallan tras 120 segundos con un timeout del lock de publicación de ACL.
-- El preflight de Windows revisa comandos e ids de padre de los workers del
+| Variable | Predeterminado | Propósito |
+|---|---|---|
+| `MUSE_BIN` | descubrimiento del launcher | Reemplaza la selección del launcher de Muse (también lo usan las pruebas) |
+| `META_API_KEY` | ninguna | Autenticación; tiene prioridad sobre el archivo de auth |
+| `MUSE_RESCUE_HOME` | `$HOME/.muse-rescue` | Los archivos de cada proceso viven bajo `jobs/<id>/` |
+| `MUSE_RESCUE_MAX_SECONDS` | `2700` (45 minutos) | Fecha límite de corridas desacopladas para `start`/`wait` |
+| `MUSE_RESCUE_TIMEOUT` | `540` | Límite corto del comando `run`, en segundos |
+| `MUSE_RESCUE_PS` | `powershell.exe` | Comando de inventario de procesos para limpieza de huérfanos (pruebas herméticas) |
+| `MUSE_RESCUE_KILL` | `taskkill` | Comando para matar árboles de procesos (pruebas herméticas) |
+| `MUSE_RESCUE_FORCE_WINDOWS` | `0` | Trata el host como Windows (pruebas) |
+
+## Solución de problemas
+
+- **Sin credenciales (código 70):** `META_API_KEY` tiene prioridad. Si no
+  existe, setup comprueba `~/.config/muse/auth.json` para verificar un
+  provider `meta` con `access_token` o `api_key` no vacío, sin imprimir el
+  archivo. Si no encuentra ninguno, ejecuta `muse login` una vez en una
+  terminal normal y luego `/muse:setup`.
+- **Sandbox de Windows no listo (código 78):** `muse sandbox windows check`
+  debe informar `status=ready`. De lo contrario, ejecuta
+  `muse sandbox windows setup` desde una terminal elevada. Esta comprobación
+  se omite en otros sistemas.
+- **Falta la CLI o Node (código 127):** instala Muse Code o verifica que
+  `muse` esté en `PATH`; instala Node.js y verifica que `node` esté en `PATH`
+  para el filtro JSONL. En Windows, el `muse.cmd` de la instalación por
+  usuario es un launcher; este plugin prefiere el binario versionado que está
+  junto a él. `MUSE_BIN` reemplaza la selección del launcher. Ejecuta
+  `/muse:setup` de nuevo.
+- **Workspace bajo AppData se cuelga:** el shell del sandbox de Muse se queda
+  colgado sin error si el workspace es privado al usuario con sesión iniciada,
+  por ejemplo bajo `%USERPROFILE%\AppData\Local\Temp`. Las herramientas de
+  archivos aún pueden funcionar. Usa un repositorio fuera del perfil, en una
+  carpeta legible por Authenticated Users. El forwarder advierte si el
+  workspace está bajo AppData del perfil, pero continúa la ejecución.
+- **Workers huérfanos del sandbox:** en Windows, el vencimiento, la
+  cancelación y el timeout corto de `run` matan todo el árbol con
+  `taskkill /T /F /PID` mientras el padre sigue vivo. De otro modo, los
+  workers del sandbox quedan huérfanos y retienen el lock global
+  `Global\TbhWindowsSandboxAclPublication`: las siguientes ejecuciones fallan
+  tras 120 segundos con un timeout del lock de publicación de ACL. El
+  preflight de Windows revisa comandos e ids de padre de los workers del
   sandbox y mata solo aquellos cuyo padre ya no existe. Muestra
   `[muse-rescue] killed N orphan Muse sandbox worker(s) left by an interrupted run`.
   Los workers de una sesión interactiva con padre vivo permanecen intactos.
-  `MUSE_RESCUE_PS` y `MUSE_RESCUE_KILL` permiten inyectar comandos en pruebas.
-- Cada hijo recibe `safe.directory` para el workspace mediante
-  `GIT_CONFIG_COUNT`, `GIT_CONFIG_KEY_N` y `GIT_CONFIG_VALUE_N`, con barras
-  normales. Se agrega al final de la configuración existente y no cambia
-  el git config global. El usuario distinto del sandbox de Windows puede
-  usar git sin el error `detected dubious ownership`.
+- **`dubious ownership` de git:** cada hijo recibe `safe.directory` para el
+  workspace mediante `GIT_CONFIG_COUNT`, `GIT_CONFIG_KEY_N` y
+  `GIT_CONFIG_VALUE_N`, con barras normales. Se agrega al final de la
+  configuración existente y no cambia el git config global. El usuario distinto
+  del sandbox de Windows puede usar git sin el error
+  `detected dubious ownership`.
+- **Cuota o rate limit:** ante salidas que mencionen `rate limit`, `429`,
+  `quota`, `usage limit`, `limit reached` o `insufficient`, detente e
+  infórmalo para que quien llama elija otra vía; nunca reintentes Muse. La
+  suscripción básica de Muse no ofrece un medidor de uso headless. Ante
+  salidas `401`, `unauthorized` o `login`, ejecuta `muse login` en una
+  terminal normal y luego `/muse:setup`.
+- **Subagente interrumpido:** un subagente interrumpido deja el proceso
+  desacoplado corriendo. Conserva su id para usar `wait <id>` o `cancel <id>`
+  después. Cancelar termina con código 130; esperar pasada la fecha límite
+  mata el árbol de procesos y termina con código 124. Las ediciones permanecen
+  en el árbol de trabajo.
+- **Reanudar sesiones:** esta versión no incluye `--continue`; no se ha
+  verificado reanudar sesiones exec de Muse.
 
-**Trampa de AppData en Windows:** el shell del sandbox de Muse se queda
-colgado sin error si el workspace es privado al usuario con sesión iniciada,
-por ejemplo bajo `%USERPROFILE%\AppData\Local\Temp`. Las herramientas de
-archivos aún pueden funcionar. Usa un repositorio fuera del perfil, en una
-carpeta legible por Authenticated Users. El forwarder advierte si el workspace
-está bajo AppData del perfil, pero continúa la ejecución.
+## Con otros delegados
 
-### Preflight de autenticación y sandbox Windows
+Si usas varios plugins de delegación, decide su orden en tu `CLAUDE.md`;
+este plugin no asume ninguno. Ante señales de cuota, rate limit o
+autenticación se detiene y lo informa, para que quien llama elija otra vía.
 
-`META_API_KEY` tiene prioridad. Si no existe, setup comprueba
-`~/.config/muse/auth.json` para verificar un provider `meta` con `access_token`
-o `api_key` no vacío, sin imprimir el archivo. Si no encuentra ninguno, el
-preflight termina con código 70 e indica ejecutar `muse login` una vez en una
-terminal normal y luego `/muse:setup`.
-
-En Windows, `muse sandbox windows check` debe informar `status=ready`. De lo
-contrario, preflight termina con código 78 e indica ejecutar
-`muse sandbox windows setup` desde una terminal elevada. Esta comprobación se
-omite en otros sistemas.
+Proyectos relacionados: [deepseek-plugin-cc](https://github.com/santiquiroz/deepseek-plugin-cc), [copilot-plugin-cc](https://github.com/santiquiroz/copilot-plugin-cc), [antigravity-plugin-cc](https://github.com/santiquiroz/antigravity-plugin-cc), [cursor-plugin-cc](https://github.com/santiquiroz/cursor-plugin-cc), [ollama-plugin-cc](https://github.com/santiquiroz/ollama-plugin-cc).
 
 ## Archivos y pruebas
 
@@ -205,19 +247,13 @@ omite en otros sistemas.
 | `scripts/stream-filter.js` | Convierte Muse JSONL en progreso y respuesta |
 | `tests/run.sh` | Suite hermética con una CLI falsa de Muse |
 | `/muse:rescue`, `/muse:setup` | Comandos de delegación y preflight |
-| `docs/delegation-guide.md` | Carriles, seguridad y fallback |
+| `docs/delegation-guide.md` | Seguridad y fallback de delegación |
 | `docs/claude-md-snippet.md` | Guía de delegación lista para pegar |
 
 La suite se ejecuta con `bash tests/run.sh`. CI corre en Ubuntu y Windows.
 
-## Todavía no
-
-- `--continue` / reanudación de sesión; no se ha verificado reanudar sesiones
-  exec de Muse.
-- Medidor de cuota; la suscripción básica de Muse no ofrece un medidor de uso
-  headless. Ante cuota o rate limit, detente y usa el siguiente carril; no
-  reintentes.
-
 ## Licencia
 
 [MIT](LICENSE)
+
+**No está afiliado con Meta ni Anthropic.**
