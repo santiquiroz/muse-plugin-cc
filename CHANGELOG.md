@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.3 — 2026-10-07
+
+- Test fix: `start-cwd` expects the physical path that `-C` resolves to (`pwd -P`), so it passes on runners whose temp folder uses an 8.3 short name. 0.2.2 was pushed but never tagged because of this test.
+
 ## 0.2.2 — 2026-10-07
 
 - Add `-C <dir>` / `--cwd <dir>` to `preflight`, `run` and `start`: run Muse in another directory, such as a git worktree, instead of the caller's current one (whose sandbox grants no write access to the worktree, so every edit failed with Access denied). The home directory, its ancestors and agent config folders are refused.

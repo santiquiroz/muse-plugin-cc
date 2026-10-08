@@ -332,7 +332,7 @@ test_manifests() {
   plugin_version=$(sed -n 's/.*"version": "\([^"]*\)".*/\1/p' "$ROOT/.claude-plugin/plugin.json" | head -n 1)
   marketplace_versions=$(sed -n 's/.*"version": "\([^"]*\)".*/\1/p' "$ROOT/.claude-plugin/marketplace.json")
   changelog_version=$(sed -n 's/^## \([^ ]*\).*/\1/p' "$ROOT/CHANGELOG.md" | head -n 1)
-  assert_equal 0.2.2 "$plugin_version" "Plugin version"
+  assert_equal 0.2.3 "$plugin_version" "Plugin version"
   assert_equal "$plugin_version" "$changelog_version" "Changelog version"
   assert_equal "$plugin_version" "$(printf '%s\n' "$marketplace_versions" | sed -n '1p')" "Marketplace metadata version"
   assert_equal "$plugin_version" "$(printf '%s\n' "$marketplace_versions" | sed -n '2p')" "Marketplace plugin version"
@@ -397,7 +397,7 @@ test_start_cwd() {
       git commit -q -m initial
   ) || exit 1
   start_job -C "$HOME/other-repo"
-  expected_workspace="$HOME/other-repo"
+  expected_workspace=$(cd "$HOME/other-repo" && pwd -P)
   if command -v cygpath >/dev/null 2>&1; then expected_workspace=$(cygpath -w "$expected_workspace"); fi
   assert_equal "$expected_workspace" "$(cat "$JOB_DIR/workspace")" "Detached -C workspace metadata"
   await_file "$FAKE_MUSE_CALLS/1.args"
