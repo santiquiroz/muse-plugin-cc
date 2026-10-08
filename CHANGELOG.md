@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.2 — 2026-10-07
+
+- Add `-C <dir>` / `--cwd <dir>` to `preflight`, `run` and `start`: run Muse in another directory, such as a git worktree, instead of the caller's current one (whose sandbox grants no write access to the worktree, so every edit failed with Access denied). The home directory, its ancestors and agent config folders are refused.
+
 ## 0.2.1 — 2026-10-07
 
 - Fix: `preflight` failed with exit 1 whenever a running process's command

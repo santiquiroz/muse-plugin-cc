@@ -1,6 +1,6 @@
 ---
 description: Delegate a bounded coding task to Muse Code through the muse-rescue subagent
-argument-hint: "[--background|--wait] [--model <slug>] [--reasoning-effort <tier>] [--max-model-steps <N>] [--read-only] [the task Muse should perform]"
+argument-hint: "[--background|--wait] [-C <dir>] [--model <slug>] [--reasoning-effort <tier>] [--max-model-steps <N>] [--read-only] [the task Muse should perform]"
 allowed-tools: Agent
 ---
 
@@ -16,9 +16,9 @@ Execution mode:
 - If neither flag is present, default to foreground.
 - `--background` and `--wait` control the Agent invocation. Remove them from
   the forwarded prompt; they are not runtime flags or task text.
-- Preserve `--model`, `--reasoning-effort`, `--max-model-steps` and `--read-only`
-  in the forwarded prompt. The subagent extracts them before forwarding the
-  natural-language task.
+- Preserve `-C <dir>`, `--model`, `--reasoning-effort`, `--max-model-steps`
+  and `--read-only` in the forwarded prompt. The subagent extracts them before
+  forwarding the natural-language task.
 
 Forward a self-contained task. For read-only reviews, ask the user to
 include the relevant code or diff in the task.

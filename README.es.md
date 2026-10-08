@@ -92,6 +92,11 @@ líneas `[muse-rescue] WARNING:`. Pon los flags antes de la tarea:
 - `--read-only` — agrega `--disable-write --disable-shell` y restricciones de
   solo lectura. Pega el código o diff a revisar; el delegado no puede ejecutar
   comandos de shell ni inspeccionar archivos.
+- `-C <dir>` — ejecuta Muse en otro directorio, como un worktree de git,
+  en lugar del actual de quien llama. El directorio home, sus ancestros y
+  las carpetas de configuración de agentes (`~/.claude`, `~/.codex`,
+  `~/.copilot`, `~/.gemini`, `~/.ssh`, `~/.config`, `~/.muse-rescue`,
+  `~/.dsh`) se rechazan.
 
 Esta versión no incluye `--continue`; no se ha verificado reanudar sesiones
 exec.
@@ -200,6 +205,10 @@ diff del árbol de trabajo antes del siguiente comando git. El forwarder rechaza
   archivos aún pueden funcionar. Usa un repositorio fuera del perfil, en una
   carpeta legible por Authenticated Users. El forwarder advierte si el
   workspace está bajo AppData del perfil, pero continúa la ejecución.
+- **Access denied / fallan las escrituras en un worktree de git:** la corrida
+  usó la carpeta de la sesión, cuyo sandbox no otorga acceso de escritura al
+  worktree. Pasa `-C <worktree>` antes de la tarea para que Muse se ejecute
+  allí.
 - **Workers huérfanos del sandbox:** en Windows, el vencimiento, la
   cancelación y el timeout corto de `run` matan todo el árbol con
   `taskkill /T /F /PID` mientras el padre sigue vivo. De otro modo, los

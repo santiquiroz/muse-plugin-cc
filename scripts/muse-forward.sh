@@ -18,6 +18,7 @@ OPT_MODEL=""
 OPT_REASONING=""
 OPT_STEPS=$DEFAULT_STEPS
 OPT_READ_ONLY=0
+OPT_CWD=""
 MUSE_LAUNCHER=""
 RUN_TASK_FILE=""
 RUN_PROMPT_FILE=""
@@ -58,6 +59,11 @@ parse_options() {
         shift 2
         ;;
       --read-only) OPT_READ_ONLY=1; shift ;;
+      -C|--cwd)
+        [ $# -ge 2 ] || usage_error "-C needs a directory"
+        OPT_CWD=$2
+        shift 2
+        ;;
       --yolo|--disable-sandbox|--disable-approval|--trust-workspace)
         usage_error "refusing unsafe option: $1"
         ;;
@@ -77,6 +83,43 @@ native_path() {
   else
     printf '%s' "$1"
   fi
+}
+
+fold_path() {
+  local path=$1
+  if command -v cygpath >/dev/null 2>&1; then path=$(cygpath -m "$path"); fi
+  path=$(printf '%s' "$path" | tr '\\' '/')
+  while [ "${#path}" -gt 1 ] && [ "${path%/}" != "$path" ]; do path=${path%/}; done
+  case $(uname -s 2>/dev/null || :) in
+    MINGW*|MSYS*|CYGWIN*) path=$(printf '%s' "$path" | tr '[:upper:]' '[:lower:]') ;;
+  esac
+  printf '%s' "$path"
+}
+
+path_at_or_under() {
+  [ "$1" = "$2" ] && return 0
+  case $2 in
+    /) case $1 in /*) return 0 ;; *) return 1 ;; esac ;;
+    *) case $1 in "$2"/*) return 0 ;; *) return 1 ;; esac ;;
+  esac
+}
+
+enter_workspace() {
+  local dir=$OPT_CWD resolved home physical_home folded folded_home candidate
+  [ -n "$dir" ] || return 0
+  resolved=$(cd -- "$dir" 2>/dev/null && pwd -P) || usage_error "-C directory not found: $dir"
+  [ -n "$resolved" ] || usage_error "-C directory not found: $dir"
+  home=${HOME:-}
+  [ -n "$home" ] || usage_error "refused -C $dir: not permitted"
+  physical_home=$(cd -- "$home" 2>/dev/null && pwd -P) || physical_home=$home
+  folded=$(fold_path "$resolved")
+  folded_home=$(fold_path "$physical_home")
+  path_at_or_under "$folded_home" "$folded" && usage_error "refused -C $dir: not permitted"
+  for candidate in .claude .codex .copilot .gemini .ssh .config .muse-rescue .dsh; do
+    path_at_or_under "$folded" "$(fold_path "$physical_home/$candidate")" &&
+      usage_error "refused -C $dir: not permitted"
+  done
+  cd -- "$resolved" || usage_error "-C directory not found: $dir"
 }
 
 find_launcher() {
@@ -590,9 +633,9 @@ main() {
   local command=${1:-}
   [ $# -gt 0 ] && shift
   case $command in
-    preflight) parse_options "$@"; preflight ;;
-    run) parse_options "$@"; run_task ;;
-    start) parse_options "$@"; start_task ;;
+    preflight) parse_options "$@"; enter_workspace; preflight ;;
+    run) parse_options "$@"; enter_workspace; run_task ;;
+    start) parse_options "$@"; enter_workspace; start_task ;;
     wait) wait_job "$@" ;;
     cancel) cancel_job "$@" ;;
     __job) run_job_wrapper "$@" ;;

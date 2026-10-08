@@ -86,6 +86,10 @@ raw request as its prompt and returning its output verbatim, including any
 - `--read-only` — adds `--disable-write --disable-shell` and a read-only task
   constraint. Paste code or a diff to review; the delegate cannot run shell
   commands or inspect files.
+- `-C <dir>` — run Muse in another directory, such as a git worktree,
+  instead of the caller's current one. The home directory, its ancestors
+  and agent config folders (`~/.claude`, `~/.codex`, `~/.copilot`,
+  `~/.gemini`, `~/.ssh`, `~/.config`, `~/.muse-rescue`, `~/.dsh`) are refused.
 
 There is no `--continue` in this release; exec session resume is unverified.
 
@@ -186,6 +190,9 @@ with exit 64.
   outside the profile, in a folder readable by Authenticated Users. The
   forwarder prints a warning for workspaces under the profile's AppData and
   continues the run.
+- **Access denied / writes fail in a git worktree:** the run used the
+  session's folder, whose sandbox grants no write access to the worktree.
+  Pass `-C <worktree>` ahead of the task so Muse runs there.
 - **Orphan sandbox workers:** on Windows, deadline, cancellation and the short
   `run` timeout kill the entire process tree with `taskkill /T /F /PID` while
   the parent is alive. Muse sandbox workers otherwise remain orphaned and hold

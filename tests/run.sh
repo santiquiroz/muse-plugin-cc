@@ -153,6 +153,30 @@ test_preflight_windows_not_ready() {
   assert_status 78 "$LAST_STATUS" "Windows sandbox missing"
   assert_contains "$LAST_OUTPUT" 'muse sandbox windows setup' "Windows setup guidance"
 }
+test_preflight_cwd_home_refused() {
+  invoke_args preflight -C "$HOME"
+  assert_status 64 "$LAST_STATUS" "Home -C refusal"
+  assert_contains "$LAST_OUTPUT" 'not permitted' "Home refusal message"
+  [ ! -e "$FAKE_MUSE_CALLS/1.args" ] || fail "Refused -C reached Muse"
+}
+test_preflight_cwd_agent_dir_refused() {
+  mkdir -p "$HOME/.claude"
+  invoke_args preflight -C "$HOME/.claude"
+  assert_status 64 "$LAST_STATUS" "Agent dir -C refusal"
+  assert_contains "$LAST_OUTPUT" 'not permitted' "Agent dir refusal message"
+  [ ! -e "$FAKE_MUSE_CALLS/1.args" ] || fail "Refused -C reached Muse"
+}
+test_preflight_cwd_missing() {
+  invoke_args preflight -C /nonexistent-dir-xyz
+  assert_status 64 "$LAST_STATUS" "Missing -C directory"
+  assert_contains "$LAST_OUTPUT" 'not found' "Missing directory message"
+  [ ! -e "$FAKE_MUSE_CALLS/1.args" ] || fail "Missing -C reached Muse"
+}
+test_preflight_cwd_no_value() {
+  invoke_args preflight -C
+  assert_status 64 "$LAST_STATUS" "Missing -C value"
+  assert_contains "$LAST_OUTPUT" '-C needs a directory' "Missing value message"
+}
 test_launcher_override() {
   install="$LOCALAPPDATA/Programs/muse"
   mkdir -p "$install"
@@ -308,7 +332,7 @@ test_manifests() {
   plugin_version=$(sed -n 's/.*"version": "\([^"]*\)".*/\1/p' "$ROOT/.claude-plugin/plugin.json" | head -n 1)
   marketplace_versions=$(sed -n 's/.*"version": "\([^"]*\)".*/\1/p' "$ROOT/.claude-plugin/marketplace.json")
   changelog_version=$(sed -n 's/^## \([^ ]*\).*/\1/p' "$ROOT/CHANGELOG.md" | head -n 1)
-  assert_equal 0.2.1 "$plugin_version" "Plugin version"
+  assert_equal 0.2.2 "$plugin_version" "Plugin version"
   assert_equal "$plugin_version" "$changelog_version" "Changelog version"
   assert_equal "$plugin_version" "$(printf '%s\n' "$marketplace_versions" | sed -n '1p')" "Marketplace metadata version"
   assert_equal "$plugin_version" "$(printf '%s\n' "$marketplace_versions" | sed -n '2p')" "Marketplace plugin version"
@@ -361,6 +385,30 @@ test_start_metadata() {
   assert_contains "$(cat "$FAKE_MUSE_CALLS/1.prompt")" 'Constraints: this is a read-only run' "Detached read-only constraints"
   invoke_args cancel "$JOB_ID"
   assert_status 130 "$LAST_STATUS" "Metadata job cleanup"
+}
+
+test_start_cwd() {
+  mkdir -p "$HOME/other-repo"
+  (
+    cd "$HOME/other-repo" || exit 1
+    git init -q &&
+      printf '%s\n' 'other workspace' >README.md &&
+      git add README.md &&
+      git commit -q -m initial
+  ) || exit 1
+  start_job -C "$HOME/other-repo"
+  expected_workspace="$HOME/other-repo"
+  if command -v cygpath >/dev/null 2>&1; then expected_workspace=$(cygpath -w "$expected_workspace"); fi
+  assert_equal "$expected_workspace" "$(cat "$JOB_DIR/workspace")" "Detached -C workspace metadata"
+  await_file "$FAKE_MUSE_CALLS/1.args"
+  load_call_args 1
+  assert_equal "$expected_workspace" "$(arg_value --workspace)" "Detached -C workspace argument"
+  invoke_args wait "$JOB_ID" --slice 10
+  assert_status 0 "$LAST_STATUS" "Detached -C completion"
+  invoke_text task run --cwd "$HOME/other-repo"
+  assert_status 0 "$LAST_STATUS" "Long-form --cwd run"
+  load_call_args 2
+  assert_equal "$expected_workspace" "$(arg_value --workspace)" "Long-form --cwd workspace argument"
 }
 
 test_wait_partial_progress() {
@@ -622,6 +670,10 @@ run_case preflight-no-auth test_preflight_no_auth
 run_case node-missing test_node_missing
 run_case preflight-windows-ready test_preflight_windows_ready
 run_case preflight-windows-not-ready test_preflight_windows_not_ready
+run_case preflight-cwd-home-refused test_preflight_cwd_home_refused
+run_case preflight-cwd-agent-dir-refused test_preflight_cwd_agent_dir_refused
+run_case preflight-cwd-missing test_preflight_cwd_missing
+run_case preflight-cwd-no-value test_preflight_cwd_no_value
 run_case launcher-override test_launcher_override
 run_case launcher-version-file test_launcher_version_file
 run_case exact-argv-prompt-env test_exact_exec_argv_prompt_and_env
@@ -636,6 +688,7 @@ run_case appdata-warning test_appdata_warning
 run_case timeout test_timeout
 run_case exit-passthrough-git-warning test_exit_passthrough_and_git_warning
 run_case start-metadata test_start_metadata
+run_case start-cwd test_start_cwd
 run_case wait-partial-progress test_wait_partial_progress
 run_case wait-final-without-newline test_wait_final_without_newline
 run_case wait-nonzero-exit test_wait_nonzero_exit
