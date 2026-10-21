@@ -6,7 +6,7 @@ readonly PREFLIGHT_FAILED_EXIT=70
 readonly NOT_FOUND_EXIT=127
 readonly DEFAULT_STEPS=60
 readonly AI_CLIS="claude, codex, copilot, agy, gemini, ollama, cursor-agent, muse"
-readonly CONSTRAINTS="Constraints: work directly in this workspace following the instructions above. Do not invoke other AI CLIs ($AI_CLIS). Do not commit, push, reset, checkout, clean, switch branches or delete files. If a command is denied by policy, stop and report it — do not look for another way to run it. Leave your changes in the working tree and end with a short list of the files you touched."
+readonly CONSTRAINTS="Constraints: work directly in this workspace following the instructions above. Do not invoke other AI CLIs ($AI_CLIS). Do not commit, push, reset, checkout, clean, switch branches or delete files. If a command is denied by policy, stop and report it — do not look for another way to run it. Leave your changes in the working tree and end with a short list of the files you touched. Then finish with one final line: STATUS: DONE, or STATUS: DONE_WITH_CONCERNS: <risks to review>, or STATUS: NEEDS_CONTEXT: <the exact question> (information is missing — do not guess), or STATUS: BLOCKED: <reason> (you cannot proceed)."
 readonly READ_ONLY_CONSTRAINTS="Constraints: this is a read-only run: do not edit files or run shell commands; report findings and proposed changes as text. Do not invoke other AI CLIs ($AI_CLIS)."
 readonly SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 readonly RESCUE_HOME=$(rescue_home=${MUSE_RESCUE_HOME:-$HOME/.muse-rescue};

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.0 — 2026-10-21
+
+- The constraints paragraph now asks the delegate to end with one final `STATUS:` line — `DONE`, `DONE_WITH_CONCERNS: <risks>`, `NEEDS_CONTEXT: <question>` or `BLOCKED: <reason>` — so the caller can tell a finished task from one that needs more information without re-reading the whole report.
+
 ## 0.2.3 — 2026-10-07
 
 - Test fix: `start-cwd` expects the physical path that `-C` resolves to (`pwd -P`), so it passes on runners whose temp folder uses an 8.3 short name. 0.2.2 was pushed but never tagged because of this test.

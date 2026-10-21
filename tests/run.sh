@@ -226,7 +226,7 @@ test_exact_exec_argv_prompt_and_env() {
     assert_equal "${expected_args[$i]}" "${CALL_ARGS[$i]}" "Exact argv item $i"
   done
   prompt=$(cat "$FAKE_MUSE_CALLS/1.prompt")
-  expected_prompt=$(printf '%s\n\n%s' 'specific task' 'Constraints: work directly in this workspace following the instructions above. Do not invoke other AI CLIs (claude, codex, copilot, agy, gemini, ollama, cursor-agent, muse). Do not commit, push, reset, checkout, clean, switch branches or delete files. If a command is denied by policy, stop and report it — do not look for another way to run it. Leave your changes in the working tree and end with a short list of the files you touched.')
+  expected_prompt=$(printf '%s\n\n%s' 'specific task' 'Constraints: work directly in this workspace following the instructions above. Do not invoke other AI CLIs (claude, codex, copilot, agy, gemini, ollama, cursor-agent, muse). Do not commit, push, reset, checkout, clean, switch branches or delete files. If a command is denied by policy, stop and report it — do not look for another way to run it. Leave your changes in the working tree and end with a short list of the files you touched. Then finish with one final line: STATUS: DONE, or STATUS: DONE_WITH_CONCERNS: <risks to review>, or STATUS: NEEDS_CONTEXT: <the exact question> (information is missing — do not guess), or STATUS: BLOCKED: <reason> (you cannot proceed).')
   assert_equal "$expected_prompt" "$prompt" "Exact prompt task and constraints"
   assert_equal '' "$(cat "$FAKE_MUSE_CALLS/1.stdin")" "Child stdin is closed"
   assert_equal 0 "$(wc -c <"$FAKE_MUSE_CALLS/1.stdin" | tr -d ' ')" "No task passed on stdin"
